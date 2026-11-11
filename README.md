@@ -11,8 +11,16 @@ pareamento podem exigir intervenção ou reconexão ao Windows. Não é uma
 instalação permanente e não usa assinatura paga da Apple.
 
 O iPhone informado (provavelmente 16 Pro Max) atende ao mínimo do projeto:
-iOS 15. Não foi feita compilação com Xcode nem teste físico desta adaptação.
-Os testes no Windows não comprovam funcionamento no iOS.
+iOS 15. A compilação release com Xcode no Mac do GitHub terminou com sucesso
+em 10/11/2026. O IPA foi conferido: aplicativo ARM64 para iPhone físico,
+identificador br.com.controledecasa.app, versão 0.1.6 (7), não um simulador.
+112 testes passaram no Windows (3 TLS ignorados por ausência de OpenSSL).
+Ainda falta instalar e testar fisicamente no iPhone; esses testes automatizados
+não comprovam comunicação real com a TV pelo iOS.
+
+Build verificado: https://github.com/JorgePais/controle-de-casa-iphone/actions/runs/42937564526
+
+SHA256 do IPA: 074e44485caaaac8ec4bf65ba95b08cda23146e1eb64f738517d75f6074a3780
 
 ## Compatibilidade da rede
 
