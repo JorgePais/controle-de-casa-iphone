@@ -1,0 +1,71 @@
+name: remote
+description: "Controle de Casa: controle local e sem anúncios para TVs LG e Samsung."
+publish_to: 'none'
+version: 0.1.6+7
+
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+  flutter: '>=3.47.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+
+  # Networking / protocols
+  http: ^1.2.1
+  upnp2: ^3.0.12
+  web_socket_channel: ^3.0.3
+  bonsoir: ^7.1.5
+  wake_on_lan: ^4.0.0
+  connectivity_plus: ^7.3.1
+  crypto: ^3.0.6
+
+  # State management & DI
+  flutter_bloc: ^9.0.0
+  equatable: ^3.0.0
+  get_it: ^9.3.0
+
+  # Persistence
+  shared_preferences: ^2.5.6
+
+  # UX
+  flutter_svg: ^2.0.16
+  speech_to_text: ^7.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  very_good_analysis: ^11.0.0
+  bloc_test: ^10.0.0
+  mocktail: ^1.0.4
+  flutter_launcher_icons: ^0.14.2
+  flutter_native_splash: ^2.4.4
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/icons/
+    - assets/materials/
+    - assets/brands/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+
+flutter_native_splash:
+  color: "#0B1A3E"
+  image: assets/icons/splash.png
+  android_12:
+    color: "#0B1A3E"
+    image: assets/icons/splash.png
+
+
+

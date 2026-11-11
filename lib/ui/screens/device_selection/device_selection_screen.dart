@@ -1,0 +1,458 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:remote/blocs/connectivity/connectivity_bloc.dart';
+import 'package:remote/blocs/device_discovery/device_discovery_bloc.dart';
+import 'package:remote/blocs/tv_connection/tv_connection_bloc.dart';
+import 'package:remote/core/models/tv_device.dart';
+import 'package:remote/core/models/tv_mac.dart';
+import 'package:remote/core/services/app_diagnostics.dart';
+import 'package:remote/l10n/app_localizations.dart';
+import 'package:remote/ui/screens/device_selection/widgets/device_list_item.dart';
+import 'package:remote/ui/screens/device_selection/widgets/manual_ip_dialog.dart';
+import 'package:remote/ui/screens/device_selection/widgets/wake_setup_dialog.dart';
+import 'package:remote/ui/screens/remote_control/remote_screen.dart';
+
+class DeviceSelectionScreen extends StatefulWidget {
+  const DeviceSelectionScreen({super.key});
+
+  @override
+  State<DeviceSelectionScreen> createState() => _DeviceSelectionScreenState();
+}
+
+class _DeviceSelectionScreenState extends State<DeviceSelectionScreen> {
+  bool _remoteOpen = false;
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<TvConnectionBloc, TvConnectionState>(
+          listenWhen: (prev, next) =>
+              prev.status != next.status && next.isConnected,
+          listener: (context, _) async {
+            if (_remoteOpen) return;
+            _remoteOpen = true;
+            unawaited(
+              AppDiagnostics.record(
+                'stage',
+                'Conexão concluída; abrindo controle',
+              ),
+            );
+            if (!context.mounted) return;
+            await Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const RemoteScreen()),
+            );
+            _remoteOpen = false;
+          },
+        ),
+        BlocListener<TvConnectionBloc, TvConnectionState>(
+          listenWhen: (prev, next) =>
+              prev.status != next.status &&
+              next.status == TvConnectionStatus.error,
+          listener: (context, state) {
+            final l = AppLocalizations.of(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  l.connectionFailed(state.errorMessage ?? l.unknown),
+                ),
+                backgroundColor: Colors.red,
+                action: state.device == null
+                    ? null
+                    : SnackBarAction(
+                        label: 'Configurar',
+                        textColor: Colors.white,
+                        onPressed: () async {
+                          final connection = context.read<TvConnectionBloc>();
+                          final device = connection.wakeConfiguration(
+                            state.device!,
+                          );
+                          final mac = await showWakeSetup(context, device);
+                          if (mac == null || !context.mounted) return;
+                          final updated = await connection.configureWake(
+                            device,
+                            mac,
+                          );
+                          connection.add(
+                            TvConnectRequested(updated, wakeFirst: true),
+                          );
+                        },
+                      ),
+              ),
+            );
+          },
+        ),
+      ],
+      child: const _DeviceSelectionView(),
+    );
+  }
+}
+
+class _DeviceSelectionView extends StatelessWidget {
+  const _DeviceSelectionView();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l.selectDevice),
+        actions: [
+          IconButton(
+            tooltip: 'Diagnóstico',
+            icon: const Icon(Icons.bug_report_outlined),
+            onPressed: () async {
+              final report = await AppDiagnostics.read();
+              if (!context.mounted) return;
+              await showDialog<void>(
+                context: context,
+                builder: (dialog) => AlertDialog(
+                  title: const Text('Diagnóstico do aplicativo'),
+                  content: SingleChildScrollView(child: SelectableText(report)),
+                  actions: [
+                    TextButton(
+                      onPressed: () =>
+                          Clipboard.setData(ClipboardData(text: report)),
+                      child: const Text('Copiar'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(dialog).pop(),
+                      child: const Text('Fechar'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          BlocBuilder<TvConnectionBloc, TvConnectionState>(
+            builder: (context, state) => state.isConnecting
+                ? TextButton(
+                    onPressed: () => context.read<TvConnectionBloc>().add(
+                      const TvDisconnectRequested(),
+                    ),
+                    child: const Text('Cancelar'),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          IconButton(
+            tooltip: l.addManually,
+            icon: const Icon(Icons.add),
+            onPressed: () => _onAddManually(context),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: BlocBuilder<ConnectivityCubit, ConnectivityStateView>(
+            builder: (context, conn) {
+              if (!conn.hasLan) {
+                return const _WifiOffState();
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _StatusHeader(),
+                  const SizedBox(height: 12),
+                  Text(
+                    l.pairingHint,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Toque na TV para conectar. Se estiver em espera, use o botão de ligar ao lado.',
+                    style: TextStyle(fontSize: 12, color: Colors.white60),
+                  ),
+                  const SizedBox(height: 16),
+                  BlocBuilder<TvConnectionBloc, TvConnectionState>(
+                    builder: (context, state) => state.isConnecting
+                        ? const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: Text(
+                              'Aguardando a TV responder. Ao ligar, ela pode levar alguns segundos…',
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  Expanded(
+                    child:
+                        BlocBuilder<DeviceDiscoveryBloc, DeviceDiscoveryState>(
+                          builder: (_, state) => _DeviceList(state: state),
+                        ),
+                  ),
+                  const SizedBox(height: 16),
+                  BlocBuilder<DeviceDiscoveryBloc, DeviceDiscoveryState>(
+                    builder: (context, state) {
+                      final scanning = state.status == DiscoveryStatus.scanning;
+                      return ElevatedButton.icon(
+                        onPressed: scanning
+                            ? null
+                            : () => context.read<DeviceDiscoveryBloc>().add(
+                                const DiscoveryRefreshRequested(),
+                              ),
+                        icon: const Icon(Icons.refresh),
+                        label: Text(l.scanAgain),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onAddManually(BuildContext context) async {
+    final result = await ManualIpDialog.show(context);
+    if (result == null) return;
+    if (!context.mounted) return;
+    context.read<DeviceDiscoveryBloc>().add(
+      ManualDeviceAdded(
+        host: result.host,
+        name: result.name,
+        brand: result.brand,
+      ),
+    );
+  }
+}
+
+class _StatusHeader extends StatelessWidget {
+  const _StatusHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final state = context.watch<DeviceDiscoveryBloc>().state;
+    final scanning = state.status == DiscoveryStatus.scanning;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[900],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[700]!),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            scanning ? Icons.search : Icons.tv,
+            color: scanning ? Colors.blue : Colors.green,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  scanning ? l.scanning : l.devicesFound,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _subtitle(l, state),
+                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+          if (scanning)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _subtitle(AppLocalizations l, DeviceDiscoveryState state) {
+    switch (state.status) {
+      case DiscoveryStatus.scanning:
+        return l.lookingForTvs;
+      case DiscoveryStatus.success:
+        return '${state.devices.length} TV(s) salvas ou encontradas';
+      case DiscoveryStatus.empty:
+        return l.noDevicesFound;
+      case DiscoveryStatus.error:
+        return state.errorMessage ?? l.discoveryFailed;
+      case DiscoveryStatus.idle:
+        return '';
+    }
+  }
+}
+
+class _DeviceList extends StatelessWidget {
+  const _DeviceList({required this.state});
+  final DeviceDiscoveryState state;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.status == DiscoveryStatus.scanning && state.devices.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              AppLocalizations.of(context).lookingForTvs,
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (state.devices.isEmpty) {
+      return const _EmptyState();
+    }
+
+    final connection = context.watch<TvConnectionBloc>().state;
+    return ListView.builder(
+      itemCount: state.devices.length,
+      itemBuilder: (context, index) {
+        final device = state.devices[index];
+        final busy =
+            connection.isConnecting && connection.device?.host == device.host;
+        return DeviceListItem(
+          device: device,
+          busy: busy,
+          onTap: () => _onTapDevice(context, device),
+          onLongPress: () => _onForgetDevice(context, device),
+          onPower: () => _onWakeDevice(context, device),
+        );
+      },
+    );
+  }
+
+  Future<void> _onWakeDevice(BuildContext context, TVDevice device) async {
+    final connection = context.read<TvConnectionBloc>();
+    if (connection.state.isConnecting) return;
+    var target = connection.wakeConfiguration(device);
+    if (normalizeTvMac(target.mac) == null) {
+      final mac = await showWakeSetup(context, target);
+      if (mac == null || !context.mounted) return;
+      target = await connection.configureWake(target, mac);
+    }
+    if (!context.mounted) return;
+    connection.add(TvConnectRequested(target, wakeFirst: true));
+  }
+
+  void _onTapDevice(BuildContext context, TVDevice device) {
+    if (context.read<TvConnectionBloc>().state.isConnecting) return;
+    context.read<TvConnectionBloc>().add(TvConnectRequested(device));
+  }
+
+  Future<void> _onForgetDevice(BuildContext context, TVDevice device) async {
+    final l = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l.forgetTv),
+        content: Text(l.forgetTvConfirm(device.displayName)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l.forget),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    context.read<TvConnectionBloc>().add(TvForgetRequested(device: device));
+    context.read<DeviceDiscoveryBloc>().add(DeviceForgotten(device));
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.tv_off, size: 64, color: Colors.grey[600]),
+          const SizedBox(height: 16),
+          Text(
+            l.noDevicesFound,
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l.noDevicesHint,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WifiOffState extends StatelessWidget {
+  const _WifiOffState();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.wifi_off, size: 80, color: Colors.red),
+          const SizedBox(height: 24),
+          Text(
+            l.noWifi,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              l.noWifiHint,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

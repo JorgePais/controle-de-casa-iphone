@@ -1,0 +1,126 @@
+{
+  "@@locale": "en",
+  "appTitle": "Controle de Casa",
+  "switchTv": "Switch TV",
+  "inputLoadFailed": "Could not load or switch inputs. Check the TV connection.",
+  "noInputs": "No external inputs found.",
+  "volume": "Volume",
+  "channels": "Channels",
+  "guide": "Guide",
+  "info": "Information",
+  "pairingHint": "On the first connection, allow the remote on your TV screen.",
+  "selectDevice": "Select Device",
+  "addManually": "Add manually",
+  "addTvManually": "Add TV manually",
+  "tvIpAddress": "TV IP address",
+  "nameOptional": "Name (optional)",
+  "cancel": "Cancel",
+  "add": "Add",
+  "scanning": "Scanning network…",
+  "devicesFound": "Devices found",
+  "foundCount": "Found {count} device(s)",
+  "@foundCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noDevicesFound": "No devices found",
+  "noDevicesHint": "Make sure your TV is powered on\nand on the same Wi-Fi network",
+  "discoveryFailed": "Discovery failed",
+  "scanAgain": "Scan again",
+  "noWifi": "No Wi-Fi connection",
+  "noWifiHint": "Connect to a Wi-Fi network so the app can talk to your TV.",
+  "wifiReconnected": "Wi-Fi reconnected",
+  "wifiDisconnected": "Wi-Fi disconnected — check your connection",
+  "remote": "Remote",
+  "reconnect": "Reconnect",
+  "numericKeypad": "Numeric keypad",
+  "power": "Power",
+  "connecting": "Connecting…",
+  "reconnecting": "Reconnecting…",
+  "connected": "Connected",
+  "connectionError": "Connection error",
+  "disconnected": "Disconnected",
+  "idle": "Idle",
+  "disconnectedReason": "Disconnected: {reason}",
+  "@disconnectedReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "ok": "OK",
+  "back": "Back",
+  "exit": "Exit",
+  "smart": "Smart",
+  "input": "Input",
+  "up": "Up",
+  "down": "Down",
+  "left": "Left",
+  "right": "Right",
+  "volumeUp": "Volume up",
+  "volumeDown": "Volume down",
+  "mute": "Mute",
+  "channelUp": "Channel up",
+  "channelDown": "Channel down",
+  "menu": "Menu",
+  "more": "More",
+  "rewind": "Rewind",
+  "record": "Record",
+  "play": "Play",
+  "stop": "Stop",
+  "pause": "Pause",
+  "fastForward": "Fast forward",
+  "redButton": "Red button",
+  "greenButton": "Green button",
+  "yellowButton": "Yellow button",
+  "blueButton": "Blue button",
+  "invalidIpv4": "Invalid IPv4 address",
+  "enterIpAddress": "Enter an IP address",
+  "lookingForTvs": "Looking for TVs…",
+  "brand": "Brand",
+  "brandSamsung": "Samsung",
+  "brandLg": "LG",
+  "ipLabel": "IP: {host}",
+  "macLabel": "MAC: {mac}",
+  "smartHub": "Smart hub",
+  "inputSource": "Input source",
+  "unknown": "unknown",
+  "manualIpHint": "192.168.1.42",
+  "manualNameHint": "Living-room TV",
+  "@ipLabel": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "@macLabel": {
+    "placeholders": {
+      "mac": {
+        "type": "String"
+      }
+    }
+  },
+  "forgetTv": "Forget this TV",
+  "forgetTvConfirm": "Remove {name} and its pairing? You will need to allow the app on the TV again.",
+  "forget": "Forget",
+  "connectionFailed": "Could not connect: {reason}",
+  "@forgetTvConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "@connectionFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  }
+}

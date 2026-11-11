@@ -1,0 +1,44 @@
+name: iPhone - gerar IPA para SideStore
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-sideload
+  cancel-in-progress: false
+
+jobs:
+  ios:
+    name: Compilar iPhone sem assinatura Apple paga
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: stable
+          cache: true
+      - name: Preparar dependências
+        run: flutter pub get
+      - name: Verificar código
+        run: flutter analyze --no-pub
+      - name: Compilar release para aparelho físico
+        run: flutter build ios --release --no-codesign
+      - name: Empacotar IPA para assinatura no SideStore
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tool/package_ipa.py build/ios/iphoneos/Runner.app dist/controle-de-casa-iphone-sem-assinatura.ipa
+          shasum -a 256 dist/controle-de-casa-iphone-sem-assinatura.ipa > dist/iphone-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: controle-de-casa-iphone-sidestore
+          path: |
+            dist/controle-de-casa-iphone-sem-assinatura.ipa
+            dist/iphone-sha256.txt
+          if-no-files-found: error
+          retention-days: 7
